@@ -14,6 +14,8 @@ Two things bugged me about that loop. First, it was all manual — every request
 
 So I automated the flow. The extension reviews in-scope traffic passively as I browse, and lets me fire a deeper analysis on specific requests on demand. More importantly, it builds a running map of the app — endpoints, parameters, identities — as traffic comes in. That map is what makes the Ask AI tab work: instead of answering from one or two requests, it answers with the whole application in context, so the responses are genuinely about this app, not a blind guess from a fragment.
 
+![image alt](https://github.com/Mubariz010/burp-ai-analyzer/blob/315c25abc0ba35c4bfadfac08eb55d0c32afc823/WhatsApp%20Image%202026-10-28%20at%2018.31.21.jpeg)
+
 ## Features
 - **Passive analysis** of in-scope, non-static responses, tuned for bounty triage: severity is
   evidence-based, and won't-fix categories (missing headers, self-XSS, etc.) are suppressed
