@@ -7,6 +7,13 @@ in bug-bounty programs and builds a live map of the application.
 > **Use only on targets you are authorized to test.** Captured request/response data (including
 > cookies and tokens in it) is sent to the Anthropic API for analysis.
 
+## Why I built this
+Doing bug bounty, I analyze HTTP requests by hand — and often I'd want a second opinion from an AI, so I'd copy-paste a request into a chat window, get a take, and go back to Burp. Useful, but slow, and I was doing it constantly.
+
+Two things bugged me about that loop. First, it was all manual — every request I wanted reviewed was a copy-paste round trip. Second, the AI only ever saw the one or two requests I pasted, so it had no idea what the application actually looked like. It was reviewing requests blind.
+
+So I automated the flow. The extension reviews in-scope traffic passively as I browse, and lets me fire a deeper analysis on specific requests on demand. More importantly, it builds a running map of the app — endpoints, parameters, identities — as traffic comes in. That map is what makes the Ask AI tab work: instead of answering from one or two requests, it answers with the whole application in context, so the responses are genuinely about this app, not a blind guess from a fragment.
+
 ## Features
 - **Passive analysis** of in-scope, non-static responses, tuned for bounty triage: severity is
   evidence-based, and won't-fix categories (missing headers, self-XSS, etc.) are suppressed
