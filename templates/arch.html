@@ -78,6 +78,11 @@ input { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-r
   </div>
 
   <div class="sec">
+    <div class="sec-title">Same object endpoint hit by 2+ distinct identities — test IDOR first</div>
+    <div id="ia-crossid"><span style="color:#8b949e">None found yet</span></div>
+  </div>
+
+  <div class="sec">
     <div class="sec-title">
       All endpoints (<span id="ep-count">0</span>)
       <input id="search" placeholder="search..." oninput="renderEndpoints()" style="margin-left:12px; width:200px;">
@@ -93,9 +98,14 @@ let expanded = new Set();
 let autoRefresh = true;
 let interval = setInterval(load, 5000);
 
+const TOKEN = "{{ token }}";
+function authHeaders() {
+  return TOKEN ? {"X-Analyzer-Token": TOKEN} : {};
+}
+
 async function load() {
   try {
-    data = await fetch('/architecture').then(r => r.json());
+    data = await fetch('/architecture', {headers: authHeaders()}).then(r => r.json());
     render();
   } catch(e) {
     console.error('fetch failed:', e);
@@ -138,6 +148,11 @@ function render() {
     ? idP.map(p => `<span class="itag blue">${p}</span>`).join('')
     : '<span style="color:#8b949e">None found yet</span>';
 
+  const crossId = data.interesting?.cross_identity_idor || [];
+  document.getElementById('ia-crossid').innerHTML = crossId.length
+    ? crossId.map(u => `<span class="itag red">${u}</span>`).join('')
+    : '<span style="color:#8b949e">None found yet</span>';
+
   renderEndpoints();
 }
 
@@ -178,6 +193,7 @@ function renderEndpoints() {
         <div class="row"><div class="row-label">Parameters</div>${params}</div>
         <div class="row"><div class="row-label">Status codes</div>${statuses}</div>
         <div class="row"><div class="row-label">Tech</div>${tech}</div>
+        <div class="row"><div class="row-label">Distinct identities observed</div>${d.identity_count || 0}</div>
       </div>
     </div>`;
   }).join('');

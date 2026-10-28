@@ -6,17 +6,25 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0d1117; color: #c9d1d9; font-size: 13px; }
-  .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+  .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .header h1 { font-size: 15px; color: #f0f6fc; font-weight: 600; }
   .stat { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; font-size: 12px; }
   .stat .n { font-size: 18px; font-weight: 700; }
   .stat.crit .n { color: #f85149; } .stat.high .n { color: #ff7b72; }
   .stat.med .n { color: #d29922; } .stat.low .n { color: #3fb950; }
   .stat.info-s .n { color: #58a6ff; }
-  .controls { padding: 10px 20px; display: flex; gap: 8px; align-items: center; background: #161b22; border-bottom: 1px solid #30363d; }
-  select, input { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 5px 10px; font-family: inherit; font-size: 12px; }
+  .stat.cost .n { color: #d2a8ff; font-size: 15px; }
+  .tabs-top { display: flex; gap: 4px; margin-left: auto; }
+  .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px 6px 0 0; padding: 6px 14px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  .tab-btn.active { background: #0d1117; color: #f0f6fc; border-bottom-color: #0d1117; }
+  .controls { padding: 10px 20px; display: flex; gap: 8px; align-items: center; background: #161b22; border-bottom: 1px solid #30363d; flex-wrap: wrap; }
+  select, input, textarea { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 5px 10px; font-family: inherit; font-size: 12px; }
   button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 12px; }
   button:hover { background: #30363d; } button.danger { border-color: #f85149; color: #f85149; }
+  button.primary { border-color: #58a6ff; color: #58a6ff; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .page { display: none; }
+  .page.active { display: block; }
   .findings { padding: 12px 20px; }
   .finding { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
   .finding-header { padding: 8px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
@@ -28,7 +36,7 @@
   .badge.low { background: #0d2119; color: #3fb950; border: 1px solid #3fb950; }
   .badge.info { background: #0d1926; color: #58a6ff; border: 1px solid #58a6ff; }
   .badge.cat { background: #1c2128; color: #8b949e; border: 1px solid #30363d; font-weight: 400; }
-  .finding-url { color: #8b949e; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
+  .finding-url { color: #8b949e; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 360px; }
   .finding-title { font-weight: 600; color: #e6edf3; flex: 1; }
   .finding-body { padding: 10px 14px; border-top: 1px solid #21262d; display: none; }
   .finding-body.open { display: block; }
@@ -40,6 +48,18 @@
   .next-tests li::before { content: "→ "; color: #3fb950; }
   .ts { color: #8b949e; font-size: 11px; }
   .empty { color: #8b949e; text-align: center; padding: 40px; }
+  .sel-cb { width: 15px; height: 15px; }
+  .ask-wrap { padding: 16px 20px; max-width: 800px; }
+  .ask-log { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .ask-q { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; color: #79c0ff; }
+  .ask-a { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 10px 14px; white-space: pre-wrap; }
+  .ask-input-row { display: flex; gap: 8px; }
+  .ask-input-row input { flex: 1; padding: 8px 10px; }
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; width: 640px; max-height: 80vh; display: flex; flex-direction: column; }
+  .modal-head { padding: 10px 14px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+  .modal-body { padding: 14px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -50,54 +70,93 @@
   <div class="stat med"><div class="n" id="s-medium">0</div><div>medium</div></div>
   <div class="stat low"><div class="n" id="s-low">0</div><div>low</div></div>
   <div class="stat info-s"><div class="n" id="s-info">0</div><div>info</div></div>
-  <div style="margin-left:auto; color:#8b949e; font-size:12px">
+  <div class="stat cost" title="Approximate — see PRICING_PER_MTOK in ai_analyzer_server.py"><div class="n" id="s-cost">$0.00</div><div>est. cost</div></div>
+  <div style="color:#8b949e; font-size:12px">
     <span id="req-count">0</span> requests analyzed
   </div>
+  <div class="tabs-top">
+    <button class="tab-btn active" id="tab-findings-btn" onclick="showPage('findings')">Findings</button>
+    <button class="tab-btn" id="tab-ask-btn" onclick="showPage('ask')">Ask AI</button>
+  </div>
 </div>
-<div class="controls">
-  <select id="filter-sev" onchange="applyFilters()">
-    <option value="">All severities</option>
-    <option value="critical">Critical</option>
-    <option value="high">High</option>
-    <option value="medium">Medium</option>
-    <option value="low">Low</option>
-    <option value="info">Info</option>
-  </select>
-  <select id="filter-cat" onchange="applyFilters()">
-    <option value="">All categories</option>
-    <option value="injection">Injection</option>
-    <option value="auth">Auth</option>
-    <option value="disclosure">Disclosure</option>
-    <option value="config">Config</option>
-    <option value="idor">IDOR</option>
-    <option value="xss">XSS</option>
-    <option value="ssrf">SSRF</option>
-    <option value="crypto">Crypto</option>
-  </select>
-  <input id="filter-host" placeholder="Filter by host..." oninput="applyFilters()" style="width:200px">
-  <button onclick="clearAll()" class="danger">Clear all</button>
-  <button id="pause-btn" onclick="toggleRefresh()">Pause Auto-Refresh</button>
-  <button onclick="window.open('/arch','_blank')">App Architecture</button>
-<!-- <span style="margin-left:auto; color:#8b949e; font-size:11px">Auto-refresh every 3s</span> -->
+
+<div class="page active" id="page-findings">
+  <div class="controls">
+    <select id="filter-sev" onchange="applyFilters()">
+      <option value="">All severities</option>
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+      <option value="info">Info</option>
+    </select>
+    <select id="filter-cat" onchange="applyFilters()">
+      <option value="">All categories</option>
+      <option value="injection">Injection</option>
+      <option value="auth">Auth</option>
+      <option value="disclosure">Disclosure</option>
+      <option value="config">Config</option>
+      <option value="idor">IDOR</option>
+      <option value="xss">XSS</option>
+      <option value="ssrf">SSRF</option>
+      <option value="crypto">Crypto</option>
+    </select>
+    <input id="filter-host" placeholder="Filter by host..." oninput="applyFilters()" style="width:180px">
+    <button onclick="clearAll()" class="danger">Clear all</button>
+    <button id="pause-btn" onclick="toggleRefresh()">Pause Auto-Refresh</button>
+    <button onclick="window.open('/arch','_blank')">App Architecture</button>
+    <button class="primary" onclick="generateReport()" id="report-btn" disabled>Generate Report (0 selected)</button>
+  </div>
+  <div class="findings" id="findings-list"><div class="empty">Waiting for traffic... Browse your target in Burp.</div></div>
 </div>
-<div class="findings" id="findings-list"><div class="empty">Waiting for traffic... Browse your target in Burp.</div></div>
+
+<div class="page" id="page-ask">
+  <div class="ask-wrap">
+    <div class="ask-log" id="ask-log"></div>
+    <div class="ask-input-row">
+      <input id="ask-input" placeholder="Ask about the app based on traffic collected so far..." onkeydown="if(event.key==='Enter') askQuestion()">
+      <button class="primary" onclick="askQuestion()">Ask</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="report-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <strong>Report draft</strong>
+      <div>
+        <button onclick="copyReport()">Copy</button>
+        <button onclick="closeModal()">Close</button>
+      </div>
+    </div>
+    <div class="modal-body" id="report-modal-body">Generating...</div>
+  </div>
+</div>
 
 <script>
+const TOKEN = "{{ token }}";
+function authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  if (TOKEN) h["X-Analyzer-Token"] = TOKEN;
+  return h;
+}
+
 let allFindings = [];
 let expanded = new Set();
-
+let selected = new Set();
 
 async function refresh() {
-  await Promise.all([fetchStats(), fetchFindings(), fetchControl()]);
+  await Promise.all([fetchStats(), fetchFindings()]);
 }
 
 async function fetchStats() {
-  const r = await fetch('/stats').then(r => r.json());
+  const r = await fetch('/stats', {headers: authHeaders()}).then(r => r.json());
   document.getElementById('s-critical').textContent = r.by_severity.critical || 0;
   document.getElementById('s-high').textContent = r.by_severity.high || 0;
   document.getElementById('s-medium').textContent = r.by_severity.medium || 0;
   document.getElementById('s-low').textContent = r.by_severity.low || 0;
   document.getElementById('s-info').textContent = r.by_severity.info || 0;
+  document.getElementById('s-cost').textContent = '$' + (r.cost_usd || 0).toFixed(2);
   document.getElementById('req-count').textContent = r.requests_analyzed || 0;
 }
 
@@ -110,7 +169,7 @@ async function fetchFindings() {
   if (cat) url += 'category=' + cat + '&';
   if (host) url += 'host=' + encodeURIComponent(host) + '&';
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-  allFindings = await fetch(url).then(r => r.json());
+  allFindings = await fetch(url, {headers: authHeaders()}).then(r => r.json());
   allFindings.sort((a, b) => (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5));
   render();
 }
@@ -119,6 +178,7 @@ function render() {
   const el = document.getElementById('findings-list');
   if (!allFindings.length) {
     el.innerHTML = '<div class="empty">No findings yet. Browse your target.</div>';
+    updateReportBtn();
     return;
   }
   el.innerHTML = allFindings.map((f, idx) => {
@@ -126,13 +186,17 @@ function render() {
     const poc = f.proof_of_concept ? `<div class="detail-row"><div class="detail-label">PoC</div><div class="poc">${f.proof_of_concept}</div></div>` : '';
     const rec = f.recommendation ? `<div class="detail-row"><div class="detail-label">Recommendation</div><div class="detail-val">${f.recommendation}</div></div>` : '';
     const tests = f.suggested_next_tests?.length ? `<div class="detail-row"><div class="detail-label">Suggested next tests</div><ul class="next-tests">${f.suggested_next_tests.map(t => '<li>' + t + '</li>').join('')}</ul></div>` : '';
+    const checked = selected.has(f.id) ? 'checked' : '';
     return `<div class="finding">
-      <div class="finding-header" onclick="toggle(${idx})">
-        <span class="badge ${f.severity}">${f.severity}</span>
-        <span class="badge cat">${f.category || 'other'}</span>
-        <span class="finding-title">${f.title}</span>
-        <span class="finding-url">${f.method || ''} ${f.url || ''}</span>
-        <span class="ts">${f.timestamp?.split('T')[1]?.slice(0,8) || ''}</span>
+      <div class="finding-header">
+        <input type="checkbox" class="sel-cb" ${checked} onclick="toggleSelect(${f.id}, event)">
+        <span onclick="toggle(${idx})" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;">
+          <span class="badge ${f.severity}">${f.severity}</span>
+          <span class="badge cat">${f.category || 'other'}</span>
+          <span class="finding-title">${f.title}</span>
+          <span class="finding-url">${f.method || ''} ${f.url || ''}</span>
+          <span class="ts">${f.timestamp?.split('T')[1]?.slice(0,8) || ''}</span>
+        </span>
       </div>
       <div class="finding-body ${isOpen ? 'open' : ''}">
         <div class="detail-row"><div class="detail-label">Detail</div><div class="detail-val">${f.detail}</div></div>
@@ -140,6 +204,7 @@ function render() {
       </div>
     </div>`;
   }).join('');
+  updateReportBtn();
 }
 
 function toggle(id) {
@@ -148,18 +213,50 @@ function toggle(id) {
   render();
 }
 
+function toggleSelect(id, ev) {
+  ev.stopPropagation();
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  updateReportBtn();
+}
+
+function updateReportBtn() {
+  const btn = document.getElementById('report-btn');
+  btn.textContent = `Generate Report (${selected.size} selected)`;
+  btn.disabled = selected.size === 0;
+}
+
+async function generateReport() {
+  const modal = document.getElementById('report-modal');
+  const body = document.getElementById('report-modal-body');
+  modal.classList.add('open');
+  body.textContent = 'Generating...';
+  const r = await fetch('/report', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({finding_ids: Array.from(selected)})
+  }).then(r => r.json());
+  body.textContent = r.report || r.error || 'No report generated.';
+}
+
+function closeModal() {
+  document.getElementById('report-modal').classList.remove('open');
+}
+
+function copyReport() {
+  const text = document.getElementById('report-modal-body').textContent;
+  navigator.clipboard?.writeText(text);
+}
+
 function applyFilters() { fetchFindings(); }
 
 async function clearAll() {
   if (!confirm('Clear all findings?')) return;
-  await fetch('/clear', {method:'POST'});
+  await fetch('/clear', {method:'POST', headers: authHeaders()});
   allFindings = [];
+  selected = new Set();
   render();
   fetchStats();
-}
-
-async function refresh() {
-  await Promise.all([fetchStats(), fetchFindings()]);
 }
 
 let autoRefresh = true;
@@ -175,10 +272,34 @@ function toggleRefresh() {
     btn.style.color = '';
   } else {
     clearInterval(refreshInterval);
-    btn.textContent = 'Resume Auto-Refresh  ';
+    btn.textContent = 'Resume Auto-Refresh';
     btn.style.borderColor = '#d29922';
     btn.style.color = '#d29922';
   }
+}
+
+function showPage(name) {
+  document.getElementById('page-findings').classList.toggle('active', name === 'findings');
+  document.getElementById('page-ask').classList.toggle('active', name === 'ask');
+  document.getElementById('tab-findings-btn').classList.toggle('active', name === 'findings');
+  document.getElementById('tab-ask-btn').classList.toggle('active', name === 'ask');
+}
+
+async function askQuestion() {
+  const input = document.getElementById('ask-input');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  const log = document.getElementById('ask-log');
+  log.innerHTML += `<div class="ask-q">${question}</div><div class="ask-a" id="ask-pending">Thinking...</div>`;
+  log.scrollTop = log.scrollHeight;
+  const r = await fetch('/ask', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({question})
+  }).then(r => r.json());
+  document.getElementById('ask-pending').removeAttribute('id');
+  document.getElementById('ask-log').lastElementChild.textContent = r.answer || r.error || 'No response.';
 }
 
 refresh();

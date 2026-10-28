@@ -27,7 +27,27 @@ import json
 import time
 
 AI_SERVER = "http://127.0.0.1:8719"
-MAX_BODY_SIZE = 4096  # bytes — truncate large bodies before sending
+ANALYZER_TOKEN = ""  # must match ANALYZER_TOKEN in ai_analyzer_server.py's .env if you set one
+BODY_READ_CAP = 16384  # raw bytes read from the message before truncating
+BODY_KEEP = 4096        # chars kept (head+tail) after truncation, sent to the server
+SKIP_CONTENT_TYPES = ("image/", "font/", "text/css", "javascript", "video/", "audio/",
+                      "application/octet-stream", "application/font")
+
+
+def _extract_body(raw, offset):
+    """Decode a request/response body and keep its head AND tail instead of a flat cutoff,
+    so a field near the end of a large JSON body isn't silently dropped before the AI ever
+    sees it."""
+    chunk = raw[offset:offset + BODY_READ_CAP]
+    try:
+        text = chunk.tostring().decode("utf-8", errors="replace")
+    except:
+        return "(binary)"
+    if len(text) <= BODY_KEEP:
+        return text
+    head = int(BODY_KEEP * 0.7)
+    tail = BODY_KEEP - head
+    return text[:head] + "\n...[truncated]...\n" + text[-tail:]
 
 
 class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory):
@@ -62,6 +82,29 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory):
             return
         if messageIsRequest:
             return  # analyze responses only (we include the request in the data)
+
+        helpers = self._helpers
+        req_info = helpers.analyzeRequest(messageInfo)
+
+        # Only spend AI calls on traffic that's actually in Burp's target scope —
+        # ads/CDNs/analytics beacons and out-of-scope hosts would otherwise get sent
+        # to the AI too, burning budget and leaking non-target traffic to the API.
+        if not self._callbacks.isInScope(req_info.getUrl()):
+            return
+
+        resp = messageInfo.getResponse()
+        if not resp:
+            return
+
+        resp_info = helpers.analyzeResponse(resp)
+        content_type = ""
+        for h in resp_info.getHeaders():
+            h_low = str(h).lower()
+            if h_low.startswith("content-type:"):
+                content_type = h_low
+                break
+        if any(x in content_type for x in SKIP_CONTENT_TYPES):
+            return  # static asset — not worth an AI call
 
         # Run analysis in background thread to avoid blocking Burp
         runner = self._AnalysisRunner(self, messageInfo, deep=False)
@@ -109,22 +152,12 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory):
 
         # Build request dict
         req_headers = list(req_info.getHeaders())
-        req_body_offset = req_info.getBodyOffset()
-        req_body = req[req_body_offset:req_body_offset + MAX_BODY_SIZE]
-        try:
-            req_body_str = req_body.tostring().decode("utf-8", errors="replace")
-        except:
-            req_body_str = "(binary)"
+        req_body_str = _extract_body(req, req_info.getBodyOffset())
 
         # Build response dict
         resp_headers = list(resp_info.getHeaders())
         resp_status = resp_info.getStatusCode()
-        resp_body_offset = resp_info.getBodyOffset()
-        resp_body = resp[resp_body_offset:resp_body_offset + MAX_BODY_SIZE]
-        try:
-            resp_body_str = resp_body.tostring().decode("utf-8", errors="replace")
-        except:
-            resp_body_str = "(binary)"
+        resp_body_str = _extract_body(resp, resp_info.getBodyOffset())
 
         payload = {
             "host": service.getHost(),
@@ -150,6 +183,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory):
             conn.setRequestMethod("POST")
             conn.setDoOutput(True)
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("X-Analyzer-Token", ANALYZER_TOKEN)
             conn.setConnectTimeout(3000)
             conn.setReadTimeout(30000)
 

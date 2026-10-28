@@ -1,12 +1,14 @@
-version: '3.8'
-
 services:
   ai-analyzer:
     build: .
     ports:
-      - "8719:8719"
+      # Loopback only: the API has no auth unless ANALYZER_TOKEN is set.
+      - "127.0.0.1:8719:8719"
     env_file:
       - .env
+    environment:
+      - HOST=0.0.0.0
     volumes:
       - ./templates:/app/templates
+      - ./data:/app/data
     restart: unless-stopped
